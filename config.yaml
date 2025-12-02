@@ -1,0 +1,266 @@
+# Automated Parking Lot Detection Pipeline Configuration
+# Complete configuration for YOLO → Mask R-CNN → DINO pipeline
+
+# Dataset Configuration
+dataset:
+  path: "path/to/your/pklot_dataset"  # Update this path to your PKLot dataset
+  name: "PKLot_Dataset"
+  version: "v1.0"
+  description: "Parking lot occupancy detection dataset"
+
+# YOLOv5 Configuration
+yolo:
+  # Model settings
+  model_path: "yolov8n.pt"  # Using YOLOv8 nano for efficiency on RTX 4060
+  image_size: 640
+  confidence_threshold: 0.5
+  iou_threshold: 0.45
+  
+  # Vehicle detection settings
+  vehicle_classes: [2, 3, 5, 7]  # COCO dataset vehicle classes (car, truck, bus, motorcycle)
+  nms_threshold: 0.3
+  
+  # Filtering settings
+  min_vehicle_area: 500  # Minimum vehicle area in pixels
+  max_vehicle_area_ratio: 0.3  # Maximum percentage of image area
+  
+  # Performance settings
+  batch_size: 1  # Single image processing for memory efficiency
+  device: "auto"  # Auto-detect GPU/CPU
+  
+# Mask R-CNN Configuration (Detectron2)
+maskrcnn:
+  # Model settings
+  model_name: "COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"
+  weights_url: "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl"
+  
+  # Thresholds
+  confidence_threshold: 0.5
+  nms_threshold: 0.3
+  
+  # Input settings
+  min_size: 800
+  max_size: 1333
+  
+  # Processing settings
+  batch_size_per_image: 512
+  
+  # Vehicle classes (COCO)
+  vehicle_classes: [2, 3, 5, 7]  # car, truck, bus, motorcycle
+  matching_iou_threshold: 0.3  # IoU threshold for matching with YOLO
+
+# DINO Configuration (Transformer-based detection)
+dino:
+  # Model settings
+  model_name: "IDEA-Research/grounding-dino-base"
+  
+  # Processing settings
+  device: "auto"
+  batch_size: 1
+  
+  # Refinement settings
+  attention_threshold: 0.1
+  refinement_iterations: 1
+  
+  # Tracking settings
+  tracking_enabled: true
+  max_tracking_distance: 50.0  # pixels
+  temporal_smoothing_alpha: 0.7
+  
+  # Confidence calibration
+  confidence_calibration: true
+  calibration_factors:
+    - iou_score
+    - segmentation_quality
+    - temporal_consistency
+
+# Parking Space Analysis Configuration
+parking_analysis:
+  # Parking space detection
+  space_detection:
+    method: "hybrid"  # Options: "grid", "segmentation", "hybrid"
+    grid_spacing_x: 100  # pixels between spaces horizontally
+    grid_spacing_y: 80   # pixels between spaces vertically
+    space_width: 80      # typical parking space width
+    space_height: 120    # typical parking space height
+    min_space_area: 3000 # minimum area to consider as parking space
+    overlap_threshold: 0.3 # overlap threshold for space assignment
+  
+  # Occupancy detection
+  occupancy_detection:
+    vehicle_overlap_threshold: 0.5  # percentage of space occupied by vehicle
+    empty_space_threshold: 0.1      # maximum vehicle overlap for empty space
+    confidence_threshold: 0.6        # minimum confidence for occupancy decision
+    
+  # Space clustering
+  clustering:
+    eps: 50      # maximum distance between parking spaces for clustering
+    min_samples: 2  # minimum samples for DBSCAN clustering
+
+# Visualizer Configuration
+visualizer:
+  # Image annotations
+  annotation:
+    show_detections: true
+    show_segmentation: true
+    show_space_labels: true
+    show_confidence_scores: true
+    
+  # Color scheme
+  colors:
+    occupied: [0, 0, 255]      # Red for occupied
+    vacant: [0, 255, 0]        # Green for vacant
+    uncertain: [0, 255, 255]   # Cyan for uncertain
+    vehicle: [255, 0, 0]       # Blue for vehicles
+    
+  # Output settings
+  output:
+    save_annotated_images: true
+    save_summary_charts: true
+    save_detailed_reports: true
+    image_format: "JPEG"
+    compression_quality: 95
+    
+# Data Processing Configuration
+data_processing:
+  # Image loading
+  image_extensions: [".jpg", ".jpeg", ".png", ".bmp", ".tiff"]
+  max_image_size: [4096, 4096]
+  min_image_size: [100, 100]
+  batch_size: 32
+  use_multiprocessing: true
+  max_workers: 4
+  
+  # Preprocessing
+  preprocessing:
+    resize_factor: 1.0
+    normalize: false  # Keep as uint8 for OpenCV compatibility
+    denoise: false
+    enhance_contrast: false
+    gaussian_blur: 0
+    brightness_adjustment: 0
+    contrast_adjustment: 1.0
+  
+  # Validation
+  validation:
+    check_image_integrity: true
+    check_file_size: true
+    min_file_size_kb: 10
+    max_file_size_mb: 50
+    validate_bboxes: true
+    max_bbox_area_ratio: 0.9
+  
+  # Output
+  output:
+    save_processed_images: false  # Save processed images if true
+    save_metadata: true
+    create_data_manifest: true
+    compression_quality: 95
+    format: "JPEG"
+
+# Output Configuration
+output:
+  # Directory structure
+  base_dir: "parking_results"
+  subdirs:
+    visualizations: "visualizations"
+    data: "data"
+    reports: "reports"
+    logs: "logs"
+  
+  # File naming
+  file_naming:
+    prefix: "parking_analysis"
+    include_timestamp: true
+    include_dataset_name: true
+  
+  # Report formats
+  formats:
+    - "json"
+    - "csv"
+    - "txt"
+    - "png"  # for visualizations
+  
+  # Summary settings
+  summary:
+    include_statistics: true
+    include_vacant_space_list: true
+    include_confidence_analysis: true
+    create_summary_report: true
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "parking_pipeline.log"
+  max_size_mb: 10
+  backup_count: 5
+  console_output: true
+
+# Performance Settings
+performance:
+  # GPU settings
+  gpu_memory_fraction: 0.8  # Use 80% of GPU memory
+  gpu_memory_growth: true
+  
+  # Processing optimization
+  use_mixed_precision: false  # Set to true if using Tensor Cores
+  enable_xla: false  # TensorFlow XLA acceleration
+  
+  # Caching
+  cache_predictions: true
+  cache_size_mb: 1000
+  
+  # Parallel processing
+  parallel_processing: true
+  max_concurrent_images: 4
+
+# Hardware Optimization (RTX 4060 8GB, 16GB RAM)
+hardware:
+  gpu: "RTX 4060"
+  gpu_memory_gb: 8
+  system_memory_gb: 16
+  recommended_settings:
+    batch_size: 1  # Single image processing
+    mixed_precision: false  # Disable for compatibility
+    memory_optimization: true
+    model_quantization: false  # Keep full precision for accuracy
+
+# Quality Assurance
+quality_assurance:
+  # Validation checks
+  validate_input_images: true
+  validate_detection_results: true
+  check_output_consistency: true
+  
+  # Error handling
+  continue_on_error: true
+  max_errors_per_image: 3
+  error_recovery: true
+  
+  # Quality metrics
+  min_confidence_threshold: 0.3
+  min_detection_count: 0
+  max_detection_count: 1000
+
+# Advanced Settings
+advanced:
+  # Model ensemble (future feature)
+  ensemble_enabled: false
+  ensemble_methods: ["voting", "weighted_average"]
+  
+  # Temporal analysis (for video sequences)
+  temporal_analysis: false
+  frame_buffer_size: 10
+  
+  # Custom pre/post-processing
+  custom_preprocessing: null  # Path to custom preprocessing function
+  custom_postprocessing: null  # Path to custom postprocessing function
+  
+  # Export options
+  export_formats: ["onnx", "tensorrt", "openvino"]  # For optimized inference
+  
+  # Debugging
+  debug_mode: false
+  save_intermediate_results: false
+  detailed_logging: false
